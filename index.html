@@ -1,0 +1,1342 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>图片合成工具箱</title>
+<style>
+  :root {
+    --paper: #f5f4f0;
+    --panel: #ffffff;
+    --ink: #23211e;
+    --ink-soft: #6b675f;
+    --line: #e4e1d9;
+    --accent: #c2410c;
+    --accent-soft: #fdeee5;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+  }
+  header {
+    padding: 20px 28px 14px;
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  }
+  header h1 { font-size: 20px; font-weight: 700; letter-spacing: 1px; }
+  header .sub { font-size: 13px; color: var(--ink-soft); }
+  main {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 20px;
+    padding: 20px 28px 40px;
+    align-items: start;
+  }
+  @media (max-width: 920px) { main { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px;
+  }
+  .panel h2 {
+    font-size: 14px; font-weight: 600; margin-bottom: 12px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .step-num {
+    display: inline-flex; width: 20px; height: 20px; border-radius: 50%;
+    background: var(--ink); color: #fff; font-size: 12px;
+    align-items: center; justify-content: center; flex: none;
+  }
+  #controls .panel { margin-bottom: 16px; }
+
+  .dropzone {
+    border: 1.5px dashed var(--line);
+    border-radius: 8px;
+    padding: 16px 12px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--ink-soft);
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+    line-height: 1.7;
+  }
+  .dropzone:hover, .dropzone.dragover {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  .dropzone strong { color: var(--ink); font-weight: 600; }
+  .dropzone small { display: block; font-size: 12px; }
+  .hidden-input { display: none; }
+
+  /* 产品列表 */
+  #product-list { margin-top: 12px; display: none; }
+  #product-list.show { display: block; }
+  .product-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px; border: 1px solid var(--line); border-radius: 8px;
+    margin-bottom: 8px; background: var(--paper);
+  }
+  .product-item .checker {
+    width: 44px; height: 44px; border-radius: 6px; border: 1px solid var(--line);
+    background: conic-gradient(#ddd 25%, #fff 0 50%, #ddd 0 75%, #fff 0) 0 0/10px 10px;
+    display: flex; align-items: center; justify-content: center; overflow: hidden; flex: none;
+  }
+  .product-item .checker img, .product-item .checker canvas { max-width: 40px; max-height: 40px; }
+  .product-item .pinfo { flex: 1; min-width: 0; font-size: 12px; color: var(--ink-soft); line-height: 1.5; }
+  .product-item .pinfo .pname {
+    color: var(--ink); font-size: 12px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;
+  }
+  .tag {
+    display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 11px; margin-top: 2px;
+  }
+  .tag.ok { background: #e6f3ea; color: var(--ok, #2f7d4f); }
+  .tag.warn { background: #fdf3e0; color: #8a5a00; }
+  .product-item .ops { display: flex; flex-direction: column; gap: 4px; flex: none; }
+  .product-item .ops button {
+    border: 1px solid var(--line); background: #fff; border-radius: 5px;
+    font-size: 11px; padding: 3px 8px; cursor: pointer; color: var(--ink); font-family: inherit;
+  }
+  .product-item .ops button:hover { border-color: var(--accent); color: var(--accent); }
+  .product-item .ops button.cut { background: var(--accent-soft); border-color: var(--accent-soft); color: var(--accent); }
+
+  .bg-count { margin-top: 10px; font-size: 12px; color: var(--ink-soft); }
+  .bg-count b { color: var(--accent); }
+
+  .pos-note {
+    font-size: 13px; color: var(--ink);
+    background: var(--accent-soft); border-radius: 6px;
+    padding: 8px 10px; margin-bottom: 4px;
+  }
+  .pos-note b { color: var(--accent); }
+
+  .slider-row { margin-top: 14px; font-size: 13px; }
+  .slider-row label { display: flex; justify-content: space-between; margin-bottom: 6px; color: var(--ink); }
+  .slider-row label output { color: var(--accent); font-weight: 600; }
+  input[type="range"] { width: 100%; accent-color: var(--accent); }
+
+  .fmt-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+  .fmt-row select, .fmt-row input[type="text"] {
+    flex: 1; min-width: 100px; padding: 7px 9px; font-size: 13px;
+    border: 1px solid var(--line); border-radius: 6px; background: var(--paper);
+    color: var(--ink); font-family: inherit;
+  }
+
+  .btn {
+    width: 100%; padding: 11px; border: none; border-radius: 8px;
+    background: var(--ink); color: #fff; font-size: 14px; font-weight: 600;
+    cursor: pointer; letter-spacing: 1px; transition: background .15s;
+  }
+  .btn:hover:not(:disabled) { background: var(--accent); }
+  .btn:disabled { opacity: .35; cursor: not-allowed; }
+  .btn.secondary { background: var(--paper); color: var(--ink); border: 1px solid var(--line); margin-top: 8px; }
+  .btn.secondary:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent); }
+
+  #preview-area .empty {
+    border: 1.5px dashed var(--line); border-radius: 10px;
+    padding: 80px 20px; text-align: center; color: var(--ink-soft); font-size: 14px;
+    line-height: 2;
+  }
+  .toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px; flex-wrap: wrap; gap: 10px;
+  }
+  .toolbar .info { font-size: 13px; color: var(--ink-soft); }
+  .toolbar .info b { color: var(--accent); }
+  .toolbar .actions { display: flex; gap: 8px; }
+  .toolbar .actions button {
+    padding: 8px 16px; font-size: 13px; border-radius: 7px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+    font-family: inherit;
+  }
+  .toolbar .actions button.primary {
+    background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600;
+  }
+  .toolbar .actions button:disabled { opacity: .35; cursor: not-allowed; }
+
+  #grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 14px;
+  }
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    overflow: hidden; position: relative;
+  }
+  .card canvas { display: block; width: 100%; height: auto; }
+  .card .meta {
+    padding: 8px 10px; display: flex; justify-content: space-between; align-items: center;
+    font-size: 12px; color: var(--ink-soft); gap: 6px;
+  }
+  .card .meta .lbl {
+    flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .card .meta .dl {
+    border: none; background: none; color: var(--accent); cursor: pointer;
+    font-size: 12px; font-family: inherit; padding: 2px 4px; flex: none;
+  }
+  .card .meta .dl:hover { text-decoration: underline; }
+
+  #toast {
+    position: fixed; left: 50%; bottom: 30px; transform: translateX(-50%) translateY(80px);
+    background: var(--ink); color: #fff; padding: 10px 20px; border-radius: 8px;
+    font-size: 13px; opacity: 0; transition: all .25s; pointer-events: none; z-index: 99;
+    max-width: 80vw;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ---------- 去背编辑器 ---------- */
+  #editor-overlay {
+    display: none; position: fixed; inset: 0; z-index: 50;
+    background: rgba(20, 19, 17, .95); flex-direction: column;
+  }
+  #editor-overlay.show { display: flex; }
+  .editor-bar {
+    display: flex; align-items: center; gap: 8px; padding: 10px 14px; flex-wrap: wrap;
+    background: #1d1b18; color: #eee; border-bottom: 1px solid #3a362f;
+  }
+  .ed-title { font-size: 13px; color: #bbb; margin-right: 6px; max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ed-btn {
+    border: 1px solid #444; background: #2a2723; color: #eee; border-radius: 6px;
+    padding: 6px 12px; font-size: 13px; cursor: pointer; font-family: inherit;
+  }
+  .ed-btn:hover { border-color: var(--accent); color: #fff; }
+  .ed-btn.active { background: var(--accent); border-color: var(--accent); }
+  .ed-btn.done { background: var(--accent); border-color: var(--accent); font-weight: 600; }
+  .ed-btn.ai { border-color: #3f6fbf; color: #79b8ff; }
+  .ed-btn.ai:hover { background: #1f3350; border-color: #58a6ff; }
+  .ed-btn.ai.running { opacity: .5; cursor: wait; }
+  .ed-sep { width: 1px; height: 20px; background: #444; margin: 0 4px; flex: none; }
+  .ed-flex { flex: 1; }
+  .ed-lbl { font-size: 12px; color: #bbb; display: flex; align-items: center; gap: 6px; }
+  .ed-lbl input[type="range"] { width: 90px; }
+  .ed-stage { flex: 1; position: relative; overflow: hidden; }
+  #editor-canvas { display: block; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
+  .ed-pop {
+    display: none; position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+    gap: 8px; background: #1d1b18; padding: 8px; border-radius: 8px; border: 1px solid #444;
+  }
+  .ed-pop.show { display: flex; }
+  .ed-pop button {
+    border: 1px solid #555; background: #2a2723; color: #eee; padding: 6px 12px;
+    border-radius: 6px; font-size: 12px; cursor: pointer; font-family: inherit;
+  }
+  .ed-pop button:hover { border-color: var(--accent); color: #fff; }
+  .ed-status { padding: 8px 14px; font-size: 12px; color: #999; background: #1d1b18; border-top: 1px solid #3a362f; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>图片合成工具箱</h1>
+  <span class="sub">多张产品图 × 背景文件夹 → 批量矩阵出图 ｜ 产品图固定居中 ｜ 全部在本地完成，图片不上传</span>
+</header>
+
+<main>
+  <!-- 左：控制面板 -->
+  <section id="controls">
+    <div class="panel">
+      <h2><span class="step-num">1</span>产品图（可一次选多张，支持 PNG / JPG）</h2>
+      <div class="dropzone" id="product-drop">
+        <strong>点击选择产品图（可多选）</strong>
+        <small>透明背景 PNG 效果最佳；JPG 可点右侧「去背」精修</small>
+      </div>
+      <input type="file" id="product-input" class="hidden-input" accept="image/*" multiple>
+      <div id="product-list"></div>
+    </div>
+
+    <div class="panel">
+      <h2><span class="step-num">2</span>背景文件夹</h2>
+      <div class="dropzone" id="bg-drop">
+        <strong>点击选择背景文件夹</strong>
+        <small>支持 jpg / png / webp / bmp，建议 1:1 方图；也可把背景文件拖到页面空白处</small>
+      </div>
+      <input type="file" id="bg-folder-input" class="hidden-input" webkitdirectory>
+      <input type="file" id="bg-files-input" class="hidden-input" multiple accept="image/*">
+      <div class="bg-count" id="bg-count"></div>
+    </div>
+
+    <div class="panel">
+      <h2><span class="step-num">3</span>合成设置</h2>
+      <div class="pos-note">产品图位置：<b>居中</b>（固定不变，等比缩放，适配 1:1 产品图与背景）</div>
+
+      <div class="slider-row">
+        <label>产品图缩放（等比，占背景宽度） <output id="scale-out">60%</output></label>
+        <input type="range" id="scale" min="5" max="100" value="60">
+      </div>
+      <div class="slider-row">
+        <label>精细微调（±5% 以内） <output id="fine-out">0%</output></label>
+        <input type="range" id="fine" min="-5" max="5" value="0" step="0.5">
+      </div>
+
+      <div class="fmt-row">
+        <select id="fmt">
+          <option value="png">PNG 输出</option>
+          <option value="jpg">JPG 输出（更小）</option>
+        </select>
+        <input type="text" id="suffix" value="_合成" placeholder="文件名后缀">
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2><span class="step-num">4</span>保存位置</h2>
+      <div class="dropzone" id="dir-drop" style="padding:12px;">
+        <strong id="dir-label">选择保存文件夹…</strong>
+        <small id="dir-status">未选择时，图片将保存到浏览器默认下载目录</small>
+      </div>
+      <div class="warn" id="dir-warn" style="display:none; margin-top:10px; padding:8px 10px; border-radius:6px; background:#fdeee5; color:var(--accent); font-size:12px; line-height:1.6;"></div>
+    </div>
+
+    <button class="btn" id="btn-download-all" disabled>全部保存</button>
+    <button class="btn secondary" id="btn-clear">清空重来</button>
+  </section>
+
+  <!-- 右：预览区 -->
+  <section id="preview-area">
+    <div class="empty" id="empty-hint">
+      完成左侧 1、2 步后，这里会实时显示「产品 × 背景」的全部合成效果<br>
+      产品图请拖到第 1 步区域，背景文件夹可拖到页面空白处
+    </div>
+    <div id="result-view" style="display:none;">
+      <div class="toolbar">
+        <div class="info" id="result-info"></div>
+        <div class="actions">
+          <button class="primary" id="btn-download-all2" disabled>全部保存</button>
+        </div>
+      </div>
+      <div id="grid"></div>
+    </div>
+  </section>
+</main>
+
+<div id="toast"></div>
+
+<!-- 去背编辑器（全屏） -->
+<div id="editor-overlay">
+  <div class="editor-bar">
+    <span class="ed-title">去背编辑：<span id="ed-name"></span></span>
+    <button class="ed-btn" data-tool="brush" title="涂掉不需要的区域">画笔</button>
+    <button class="ed-btn" data-tool="eraser" title="恢复被误删的区域">橡皮</button>
+    <button class="ed-btn" data-tool="rect" title="拖出矩形选区后统一去除/恢复">框选</button>
+    <button class="ed-btn" data-tool="pen" title="依次点击勾勒轮廓，闭合后统一去除/恢复">钢笔</button>
+    <button class="ed-btn" data-tool="move" title="拖拽平移视图（滚轮缩放）">抓手</button>
+    <span class="ed-sep"></span>
+    <label class="ed-lbl">笔刷 <input type="range" id="ed-size" min="5" max="200" value="40"><output id="ed-size-out">40</output></label>
+    <label class="ed-lbl">容差 <input type="range" id="ed-tol" min="10" max="90" value="40"><output id="ed-tol-out">40</output></label>
+    <button class="ed-btn" id="ed-auto">自动去背</button>
+    <button class="ed-btn ai" id="ed-ai" title="基于 u2netp AI 模型，适合复杂背景，首次使用需加载模型（约几秒）">AI 智能去背</button>
+    <button class="ed-btn" id="ed-undo">撤销</button>
+    <span class="ed-flex"></span>
+    <button class="ed-btn done" id="ed-ok">完成</button>
+    <button class="ed-btn" id="ed-cancel">取消</button>
+  </div>
+  <div class="ed-stage" id="ed-stage">
+    <canvas id="editor-canvas"></canvas>
+    <div class="ed-pop" id="rect-pop">
+      <button id="rect-cut">选中区域去除</button>
+      <button id="rect-keep">选中区域恢复</button>
+    </div>
+    <div class="ed-pop" id="pen-pop">
+      <button id="pen-cut">闭合并去除</button>
+      <button id="pen-keep">闭合并恢复</button>
+      <button id="pen-clear">清空点</button>
+    </div>
+  </div>
+  <div class="ed-status" id="ed-status"></div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var state = {
+    products: [],         // [{ id, src, w, h, name, hasAlpha }]
+    backgrounds: [],      // [{ src, name, w, h }]
+    scale: 60,            // 产品图宽度占背景宽度百分比（等比缩放）
+    fine: 0               // 精细微调（±5%）
+  };
+  var nextId = 1;
+
+  var EXTS = /\.(jpe?g|png|webp|bmp)$/i;
+  var PREVIEW_MAX = 380; // 预览卡片最大边长（导出时仍用原分辨率）
+
+  // ---------- DOM ----------
+  var $ = function (id) { return document.getElementById(id); };
+  var scaleEl = $("scale"), fineEl = $("fine");
+
+  function effectiveScale() {
+    return Math.min(100, Math.max(1, state.scale + state.fine));
+  }
+
+  scaleEl.addEventListener("input", function () {
+    state.scale = +scaleEl.value;
+    $("scale-out").textContent = scaleEl.value + "%";
+    renderAll();
+  });
+  fineEl.addEventListener("input", function () {
+    state.fine = +fineEl.value;
+    $("fine-out").textContent = (state.fine > 0 ? "+" : "") + fineEl.value + "%";
+    renderAll();
+  });
+
+  // ---------- 文件选择 ----------
+  $("product-drop").addEventListener("click", function () { $("product-input").click(); });
+  $("bg-drop").addEventListener("click", function () { $("bg-folder-input").click(); });
+
+  $("product-input").addEventListener("change", function (e) {
+    loadProducts(Array.prototype.slice.call(e.target.files));
+  });
+  $("bg-folder-input").addEventListener("change", function (e) {
+    loadBackgrounds(Array.prototype.slice.call(e.target.files));
+  });
+  $("bg-files-input").addEventListener("change", function (e) {
+    loadBackgrounds(Array.prototype.slice.call(e.target.files));
+  });
+
+  // 拖拽：页面空白处 → 背景；第 1 步区域 → 产品图
+  ["dragover", "dragleave", "drop"].forEach(function (ev) {
+    document.addEventListener(ev, function (e) { e.preventDefault(); });
+  });
+  document.addEventListener("drop", function (e) {
+    var files = Array.prototype.slice.call(e.dataTransfer.files);
+    if (files.length) loadBackgrounds(files);
+  });
+  $("product-drop").addEventListener("dragover", function (e) {
+    e.preventDefault(); e.stopPropagation();
+    $("product-drop").classList.add("dragover");
+  });
+  $("product-drop").addEventListener("dragleave", function () {
+    $("product-drop").classList.remove("dragover");
+  });
+  $("product-drop").addEventListener("drop", function (e) {
+    e.preventDefault(); e.stopPropagation();
+    $("product-drop").classList.remove("dragover");
+    var files = Array.prototype.slice.call(e.dataTransfer.files);
+    if (files.length) loadProducts(files);
+  });
+  $("bg-drop").addEventListener("dragover", function () { $("bg-drop").classList.add("dragover"); });
+  $("bg-drop").addEventListener("dragleave", function () { $("bg-drop").classList.remove("dragover"); });
+  $("bg-drop").addEventListener("drop", function () { $("bg-drop").classList.remove("dragover"); });
+
+  // ---------- 加载产品图（支持多张） ----------
+  function loadProducts(files) {
+    var imgs = files.filter(function (f) { return /^image\//.test(f.type) || EXTS.test(f.name); });
+    if (!imgs.length) { toast("没有找到图片文件"); return; }
+    var left = imgs.length;
+    $("product-drop").querySelector("strong").textContent = "正在加载 " + imgs.length + " 张产品图...";
+    imgs.forEach(function (f) {
+      var url = URL.createObjectURL(f);
+      var img = new Image();
+      img.onload = function () {
+        state.products.push({
+          id: nextId++,
+          src: img,
+          origSrc: img,
+          w: img.naturalWidth,
+          h: img.naturalHeight,
+          name: f.name,
+          hasAlpha: hasAlpha(img)
+        });
+        left--;
+        if (left === 0) {
+          $("product-drop").querySelector("strong").textContent = "点击选择产品图（可多选）";
+          renderProductList();
+          renderAll();
+        }
+      };
+      img.onerror = function () {
+        left--;
+        if (left === 0) {
+          $("product-drop").querySelector("strong").textContent = "点击选择产品图（可多选）";
+          renderProductList();
+          renderAll();
+        }
+      };
+      img.src = url;
+    });
+  }
+
+  function hasAlpha(img) {
+    var c = document.createElement("canvas");
+    var w = c.width = Math.min(64, img.naturalWidth);
+    var h = c.height = Math.min(64, img.naturalHeight);
+    var ctx = c.getContext("2d");
+    ctx.drawImage(img, 0, 0, w, h);
+    var data;
+    try {
+      data = ctx.getImageData(0, 0, w, h).data;
+    } catch (e) { return true; }
+    for (var i = 3; i < data.length; i += 4) {
+      if (data[i] < 250) return true;
+    }
+    return false;
+  }
+
+  // ---------- 产品列表 ----------
+  function renderProductList() {
+    var list = $("product-list");
+    list.innerHTML = "";
+    list.classList.toggle("show", state.products.length > 0);
+    state.products.forEach(function (p) {
+      var item = document.createElement("div");
+      item.className = "product-item";
+
+      var checker = document.createElement("div");
+      checker.className = "checker";
+      checker.appendChild(p.src);
+      item.appendChild(checker);
+
+      var info = document.createElement("div");
+      info.className = "pinfo";
+      var nm = document.createElement("span");
+      nm.className = "pname";
+      nm.textContent = p.name;
+      nm.title = p.name;
+      var detail = document.createElement("div");
+      detail.textContent = p.w + "×" + p.h;
+      var tag = document.createElement("span");
+      tag.className = "tag " + (p.hasAlpha ? "ok" : "warn");
+      tag.textContent = p.hasAlpha ? "透明背景" : "无透明通道";
+      detail.appendChild(tag);
+      info.appendChild(nm);
+      info.appendChild(detail);
+      item.appendChild(info);
+
+      var ops = document.createElement("div");
+      ops.className = "ops";
+      var cut = document.createElement("button");
+      cut.className = "cut";
+      cut.textContent = "去背";
+      cut.title = p.hasAlpha ? "已透明，可再调整容差" : "一键去除纯色背景";
+      cut.addEventListener("click", function () { openCutout(p.id); });
+      ops.appendChild(cut);
+      var rm = document.createElement("button");
+      rm.textContent = "移除";
+      rm.addEventListener("click", function () {
+        if (ed && ed.id === p.id) closeEditor();
+        state.products = state.products.filter(function (x) { return x.id !== p.id; });
+        renderProductList();
+        renderAll();
+      });
+      ops.appendChild(rm);
+      item.appendChild(ops);
+
+      list.appendChild(item);
+    });
+  }
+
+  // ---------- 去背编辑器（自动去背 + 画笔 / 橡皮 / 框选 / 钢笔精修） ----------
+  var ed = null;
+
+  function openCutout(id) {
+    var p = state.products.filter(function (x) { return x.id === id; })[0];
+    if (!p) return;
+    // 限制编辑尺寸上限，保证流畅
+    var maxSide = 1600;
+    var k = Math.min(1, maxSide / Math.max(p.w, p.h));
+    var w = Math.round(p.w * k), h = Math.round(p.h * k);
+    var orig = document.createElement("canvas");
+    orig.width = w; orig.height = h;
+    orig.getContext("2d").drawImage(p.origSrc, 0, 0, w, h);
+    var off = document.createElement("canvas");
+    off.width = w; off.height = h;
+    off.getContext("2d").drawImage(p.src, 0, 0, w, h);
+    ed = {
+      id: id, name: p.name, w: w, h: h,
+      orig: orig, off: off,
+      tool: "brush", size: 40,
+      pen: [], hoverPt: null, rect: null, rectStart: null,
+      zoom: 1, panX: 0, panY: 0,
+      undo: [], drawing: false, last: null
+    };
+    $("ed-name").textContent = p.name;
+    $("editor-overlay").classList.add("show");
+    var cv = $("editor-canvas");
+    cv.width = $("ed-stage").clientWidth;
+    cv.height = $("ed-stage").clientHeight;
+    $("ed-size").value = 40; $("ed-size-out").textContent = "40";
+    setEdTool("brush");
+    renderEd();
+  }
+
+  function closeEditor() {
+    ed = null;
+    $("editor-overlay").classList.remove("show");
+  }
+
+  function edStatus(msg) { $("ed-status").textContent = msg; }
+
+  function setEdTool(t) {
+    if (!ed) return;
+    ed.tool = t; ed.rect = null; ed.rectStart = null; ed.pen = []; ed.hoverPt = null; ed.drawing = false;
+    hidePops();
+    document.querySelectorAll(".ed-btn[data-tool]").forEach(function (b) {
+      b.classList.toggle("active", b.dataset.tool === t);
+    });
+    $("editor-canvas").style.cursor = {
+      brush: "crosshair", eraser: "cell", rect: "crosshair", pen: "crosshair", move: "grab"
+    }[t];
+    edStatus({
+      brush: "画笔：按住左键涂抹，去除产品外的区域",
+      eraser: "橡皮：按住左键涂抹，恢复被误删的产品区域",
+      rect: "框选：按住左键拖出矩形选区，再选「去除」或「恢复」",
+      pen: "钢笔：依次点击勾勒轮廓（至少 3 个点），再选「闭合并去除 / 恢复」",
+      move: "抓手：按住左键拖拽平移视图"
+    }[t] + " ｜ 滚轮缩放视图");
+  }
+
+  function hidePops() {
+    $("rect-pop").classList.remove("show");
+    $("pen-pop").classList.remove("show");
+  }
+
+  // 图片在画布上的显示参数
+  function edView() {
+    var cv = $("editor-canvas");
+    var s = Math.min(cv.width / ed.w, cv.height / ed.h) * ed.zoom;
+    var ox = ed.panX + (cv.width - ed.w * s) / 2;
+    var oy = ed.panY + (cv.height - ed.h * s) / 2;
+    return { s: s, ox: ox, oy: oy };
+  }
+
+  function toImagePt(e) {
+    var r = $("editor-canvas").getBoundingClientRect();
+    var v = edView();
+    return { x: (e.clientX - r.left - v.ox) / v.s, y: (e.clientY - r.top - v.oy) / v.s };
+  }
+
+  function drawChecker(ctx, w, h) {
+    ctx.fillStyle = "#8a8a8a";
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = "#b5b5b5";
+    var t = 16;
+    for (var y = 0; y * t < h; y++) {
+      for (var x = 0; x * t < w; x++) {
+        if ((x + y) % 2 === 0) ctx.fillRect(x * t, y * t, t, t);
+      }
+    }
+  }
+
+  function renderEd() {
+    if (!ed) return;
+    var cv = $("editor-canvas");
+    var ctx = cv.getContext("2d");
+    drawChecker(ctx, cv.width, cv.height);
+    var v = edView();
+    ctx.drawImage(ed.off, v.ox, v.oy, ed.w * v.s, ed.h * v.s);
+    if (ed.rect) {
+      var r = { x: v.ox + ed.rect.x * v.s, y: v.oy + ed.rect.y * v.s, w: ed.rect.w * v.s, h: ed.rect.h * v.s };
+      ctx.strokeStyle = "#ff7a45";
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([5, 4]);
+      ctx.strokeRect(r.x, r.y, r.w, r.h);
+      ctx.setLineDash([]);
+    }
+    if (ed.pen.length) {
+      ctx.strokeStyle = "#ff7a45";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ed.pen.forEach(function (pt, i) {
+        var sx = v.ox + pt.x * v.s, sy = v.oy + pt.y * v.s;
+        if (i === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
+      });
+      if (ed.hoverPt) ctx.lineTo(v.ox + ed.hoverPt.x * v.s, v.oy + ed.hoverPt.y * v.s);
+      ctx.stroke();
+      ed.pen.forEach(function (pt) {
+        ctx.fillStyle = "#ff7a45";
+        ctx.beginPath();
+        ctx.arc(v.ox + pt.x * v.s, v.oy + pt.y * v.s, 3, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+  }
+
+  function normRect(a, b) {
+    var x = Math.max(0, Math.min(a.x, b.x));
+    var y = Math.max(0, Math.min(a.y, b.y));
+    var x2 = Math.min(ed.w, Math.max(a.x, b.x));
+    var y2 = Math.min(ed.h, Math.max(a.y, b.y));
+    return { x: x, y: y, w: Math.max(0, x2 - x), h: Math.max(0, y2 - y) };
+  }
+
+  function penPath() {
+    var path = new Path2D();
+    ed.pen.forEach(function (pt, i) {
+      if (i === 0) path.moveTo(pt.x, pt.y); else path.lineTo(pt.x, pt.y);
+    });
+    path.closePath();
+    return path;
+  }
+
+  function pushUndo() {
+    if (!ed) return;
+    ed.undo.push(ed.off.getImageData(0, 0, ed.w, ed.h));
+    if (ed.undo.length > 10) ed.undo.shift();
+  }
+
+  function undoEd() {
+    if (!ed) return;
+    if (!ed.undo.length) { edStatus("没有可撤销的操作"); return; }
+    ed.off.getContext("2d").putImageData(ed.undo.pop(), 0, 0);
+    renderEd();
+    edStatus("已撤销一步");
+  }
+
+  // 画笔 / 橡皮：沿线段盖章
+  function stamp(pt) {
+    var ctx = ed.off.getContext("2d");
+    var r = ed.size / 2;
+    var x = pt.x, y = pt.y;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.clip();
+    if (ed.tool === "brush") {
+      ctx.clearRect(x - r, y - r, ed.size, ed.size);
+    } else {
+      ctx.drawImage(ed.orig, x - r, y - r, ed.size, ed.size, x - r, y - r, ed.size, ed.size);
+    }
+    ctx.restore();
+  }
+
+  function strokeTo(pt) {
+    var step = Math.max(1, ed.size / 4);
+    var dx = pt.x - ed.last.x, dy = pt.y - ed.last.y;
+    var dist = Math.sqrt(dx * dx + dy * dy);
+    var n = Math.max(1, Math.floor(dist / step));
+    for (var i = 1; i <= n; i++) {
+      stamp({ x: ed.last.x + dx * i / n, y: ed.last.y + dy * i / n });
+    }
+    ed.last = pt;
+  }
+
+  function applyRect(remove) {
+    if (!ed || !ed.rect) return;
+    var r = ed.rect;
+    var ctx = ed.off.getContext("2d");
+    pushUndo();
+    if (remove) {
+      ctx.clearRect(r.x, r.y, r.w, r.h);
+    } else {
+      ctx.drawImage(ed.orig, r.x, r.y, r.w, r.h, r.x, r.y, r.w, r.h);
+    }
+    ed.rect = null;
+    hidePops();
+    renderEd();
+    edStatus(remove ? "已去除选中区域" : "已恢复选中区域");
+  }
+
+  function applyPen(remove) {
+    if (!ed) return;
+    if (ed.pen.length < 3) { edStatus("至少需要 3 个点才能闭合"); return; }
+    var ctx = ed.off.getContext("2d");
+    var path = penPath();
+    pushUndo();
+    ctx.save();
+    if (remove) {
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.fillStyle = "#000";
+      ctx.fill(path);
+    } else {
+      ctx.clip(path);
+      ctx.drawImage(ed.orig, 0, 0);
+    }
+    ctx.restore();
+    ed.pen = []; ed.hoverPt = null;
+    hidePops();
+    renderEd();
+    edStatus(remove ? "已去除闭合区域" : "已恢复闭合区域");
+  }
+
+  function autoCut() {
+    if (!ed) return;
+    var t0 = performance.now();
+    try {
+      var res = cutoutCanvas(ed.orig, ed.w, ed.h, +$("ed-tol").value);
+      var ms = Math.round(performance.now() - t0);
+      if (res.alreadyTransparent) {
+        edStatus("这张图已带透明背景，无需自动去背；可直接用画笔 / 框选 / 钢笔局部精修");
+        return;
+      }
+      if (res.removed === 0) {
+        edStatus("未能去除任何区域。若背景与产品颜色相近，请调大容差重试；复杂背景建议用画笔 / 钢笔手动处理");
+        return;
+      }
+      if (res.removed / res.total > 0.95) {
+        edStatus("警告：将去除约 " + Math.round(res.removed / res.total * 100) + "% 的画面（背景色与产品过于接近或产品贴满整图），本次未应用。请调小容差，或改用画笔 / 钢笔手动处理");
+        return;
+      }
+      // 确认安全后才应用
+      pushUndo();
+      var ctx = ed.off.getContext("2d");
+      ctx.clearRect(0, 0, ed.w, ed.h);
+      ctx.drawImage(res.canvas, 0, 0);
+      renderEd();
+      edStatus("自动去背完成：去除约 " + Math.round(res.removed / res.total * 100) + "% 画面（" + ms + " ms），可用画笔 / 橡皮 / 框选 / 钢笔继续精修");
+    } catch (err) {
+      edStatus("自动去背出错：" + err.message);
+    }
+  }
+
+  // ---------- AI 智能去背（u2netp 模型，浏览器本地推理，无需联网） ----------
+  var aiState = { loading: false, ready: false, session: null };
+
+  function loadScript(src) {
+    return new Promise(function (res, rej) {
+      var s = document.createElement("script");
+      s.src = src;
+      s.onload = res;
+      s.onerror = function () { rej(new Error("无法加载 " + src)); };
+      document.head.appendChild(s);
+    });
+  }
+
+  function b64ToBytes(b64) {
+    var bin = atob(b64);
+    var n = bin.length;
+    var bytes = new Uint8Array(n);
+    for (var i = 0; i < n; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+  }
+
+  // AI 资源多级回退：本地文件 → CDN / base64，兼容 file:// 双击与 http(s) 部署
+  var CDN_ORT = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/ort.min.js";
+  var CDN_WASM = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/ort-wasm-simd.wasm";
+  var CDN_MODEL = "https://wuhengqwe.github.io/image-compose-toolbox/ai/u2netp.onnx";
+
+  async function loadScriptWithFallback(primary, fallback) {
+    try { await loadScript(primary); }
+    catch (e) { if (!fallback) throw e; await loadScript(fallback); }
+  }
+
+  // 依次尝试本地文件、CDN、本地 base64，返回字节
+  async function loadBytes(localUrl, cdnUrl, b64Script, b64Var) {
+    try {
+      var r = await fetch(localUrl);
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return new Uint8Array(await r.arrayBuffer());
+    } catch (e1) {
+      if (cdnUrl) {
+        try {
+          var r2 = await fetch(cdnUrl);
+          if (!r2.ok) throw new Error("HTTP " + r2.status);
+          return new Uint8Array(await r2.arrayBuffer());
+        } catch (e2) { /* 继续尝试 base64 */ }
+      }
+      if (b64Script) {
+        await loadScript(b64Script);
+        return b64ToBytes(window[b64Var]);
+      }
+      throw e1;
+    }
+  }
+
+  async function ensureAI() {
+    if (aiState.ready) return;
+    if (aiState.loading) throw new Error("模型正在加载中，请稍候再试");
+    aiState.loading = true;
+    $("ed-ai").classList.add("running");
+    try {
+      edStatus("正在加载 AI 模型文件（首次约 5–15 秒，之后秒开）...");
+      if (typeof window.ort === "undefined") await loadScriptWithFallback("ai/ort.min.js", CDN_ORT);
+      var wasmBytes = await loadBytes("ai/ort-wasm-simd.wasm", CDN_WASM, "ai/ort-wasm-b64.js", "__ORT_WASM_B64");
+      var modelBytes = await loadBytes("ai/u2netp.onnx", CDN_MODEL, "ai/u2netp-b64.js", "__U2NETP_B64");
+      edStatus("正在初始化 AI 推理引擎...");
+      ort.env.wasm.wasmBinary = wasmBytes;
+      ort.env.wasm.numThreads = 1;
+      aiState.session = await ort.InferenceSession.create(modelBytes, { executionProviders: ["wasm"] });
+      aiState.ready = true;
+      edStatus("AI 模型就绪");
+    } finally {
+      aiState.loading = false;
+      $("ed-ai").classList.remove("running");
+    }
+  }
+
+  async function aiCut() {
+    if (!ed || aiState.loading) return;
+    try {
+      await ensureAI();
+    } catch (e) {
+      edStatus("AI 模型加载失败：" + e.message + "；可改用「自动去背」或画笔 / 钢笔手动处理");
+      return;
+    }
+    try {
+      edStatus("AI 去背运行中...");
+      var t0 = performance.now();
+      // 预处理：拉伸到 320x320，ImageNet 均值方差归一化（与 rembg 一致）
+      var c = document.createElement("canvas");
+      c.width = 320; c.height = 320;
+      var cx = c.getContext("2d");
+      cx.drawImage(ed.orig, 0, 0, 320, 320);
+      var id = cx.getImageData(0, 0, 320, 320).data;
+      var S = 320 * 320;
+      var input = new Float32Array(3 * S);
+      var mean = [0.485, 0.456, 0.406], std = [0.229, 0.224, 0.225];
+      for (var i = 0, p = 0; i < id.length; i += 4, p++) {
+        input[p] = (id[i] / 255 - mean[0]) / std[0];
+        input[S + p] = (id[i + 1] / 255 - mean[1]) / std[1];
+        input[2 * S + p] = (id[i + 2] / 255 - mean[2]) / std[2];
+      }
+      var outs = await aiState.session.run({ "input.1": new ort.Tensor("float32", input, [1, 3, 320, 320]) });
+      var keys = Object.keys(outs).sort();
+      var out = outs[keys[keys.length - 1]].data; // 最后一个输出为最终蒙版（已含 sigmoid）
+      // 蒙版放大回原尺寸
+      var mc = document.createElement("canvas");
+      mc.width = 320; mc.height = 320;
+      var mctx = mc.getContext("2d");
+      var mdata = mctx.createImageData(320, 320);
+      for (var j = 0; j < S; j++) {
+        var v = Math.round(Math.max(0, Math.min(1, out[j])) * 255);
+        mdata.data[j * 4] = v; mdata.data[j * 4 + 1] = v; mdata.data[j * 4 + 2] = v; mdata.data[j * 4 + 3] = 255;
+      }
+      mctx.putImageData(mdata, 0, 0);
+      var mfull = document.createElement("canvas");
+      mfull.width = ed.w; mfull.height = ed.h;
+      var mx = mfull.getContext("2d");
+      mx.imageSmoothingEnabled = true;
+      mx.drawImage(mc, 0, 0, ed.w, ed.h);
+      // 应用蒙版：整体替换 alpha（AI 蒙版带软边缘）
+      pushUndo();
+      var ctx = ed.off.getContext("2d");
+      var od = ctx.getImageData(0, 0, ed.w, ed.h);
+      var md = mx.getImageData(0, 0, ed.w, ed.h).data;
+      for (var k = 3; k < od.data.length; k += 4) od.data[k] = md[k - 1];
+      ctx.putImageData(od, 0, 0);
+      renderEd();
+      edStatus("AI 去背完成（" + Math.round(performance.now() - t0) + " ms），可用画笔 / 橡皮 / 框选 / 钢笔微调边缘");
+    } catch (err) {
+      edStatus("AI 去背出错：" + err.message);
+    }
+  }
+
+  function cutoutCanvas(src, w, h, tol) {
+    var c = document.createElement("canvas");
+    c.width = w; c.height = h;
+    var ctx = c.getContext("2d");
+    ctx.drawImage(src, 0, 0, w, h);
+    var data = ctx.getImageData(0, 0, w, h);
+    var d = data.data;
+    var total = w * h;
+
+    // 1) 采样四边「不透明」像素求平均背景色（跳过已有透明区）
+    var r = 0, g = 0, b = 0, n = 0, transparent = 0;
+    var sx = Math.max(1, Math.floor(w / 120));
+    var sy = Math.max(1, Math.floor(h / 120));
+    function samp(px, py) {
+      var i = (py * w + px) * 4;
+      if (d[i + 3] < 128) { transparent++; return; }
+      r += d[i]; g += d[i + 1]; b += d[i + 2]; n++;
+    }
+    var x, y;
+    for (x = 0; x < w; x += sx) { samp(x, 0); samp(x, h - 1); }
+    for (y = 0; y < h; y += sy) { samp(0, y); samp(w - 1, y); }
+
+    // 已大量透明（如透明背景 PNG）：无需自动去背
+    var sampled = n + transparent;
+    if (n === 0 || transparent / sampled > 0.5) {
+      return { canvas: c, removed: 0, alreadyTransparent: true };
+    }
+    r /= n; g /= n; b /= n;
+
+    // 2) 洪泛填充：透明像素 或 与平均背景色距离 <= tol 的连通区域设为背景
+    var tol2 = tol * tol * 3; // 三通道距离平方和阈值
+    var bg = new Uint8Array(total);
+    var queue = new Int32Array(total);
+    var qs = 0, qe = 0;
+    function tryPush(px, py) {
+      var idx = py * w + px;
+      if (bg[idx]) return;
+      var i = idx * 4;
+      if (d[i + 3] < 128) { bg[idx] = 1; queue[qe++] = idx; return; }
+      var dr = d[i] - r, dg = d[i + 1] - g, db = d[i + 2] - b;
+      if (dr * dr + dg * dg + db * db <= tol2) {
+        bg[idx] = 1;
+        queue[qe++] = idx;
+      }
+    }
+    for (x = 0; x < w; x++) { tryPush(x, 0); tryPush(x, h - 1); }
+    for (y = 0; y < h; y++) { tryPush(0, y); tryPush(w - 1, y); }
+    while (qs < qe) {
+      var idx = queue[qs++];
+      var px = idx % w, py = (idx - px) / w;
+      if (px > 0) tryPush(px - 1, py);
+      if (px < w - 1) tryPush(px + 1, py);
+      if (py > 0) tryPush(px, py - 1);
+      if (py < h - 1) tryPush(px, py + 1);
+    }
+
+    // 3) 背景区 alpha 置 0，统计新去除的像素数
+    var removed = 0;
+    for (var idx2 = 0; idx2 < total; idx2++) {
+      if (bg[idx2] && d[idx2 * 4 + 3] >= 128) {
+        d[idx2 * 4 + 3] = 0;
+        removed++;
+      }
+    }
+    ctx.putImageData(data, 0, 0);
+    return { canvas: c, removed: removed, total: total, alreadyTransparent: false };
+  }
+
+  // ---------- 编辑器事件 ----------
+  var cvEd = $("editor-canvas");
+
+  cvEd.addEventListener("pointerdown", function (e) {
+    if (!ed) return;
+    cvEd.setPointerCapture(e.pointerId);
+    var pt = toImagePt(e);
+    if (ed.tool === "brush" || ed.tool === "eraser") {
+      ed.drawing = true; ed.last = pt; pushUndo(); stamp(pt); renderEd();
+    } else if (ed.tool === "rect") {
+      ed.drawing = true; ed.rectStart = pt; ed.rect = null;
+    } else if (ed.tool === "pen") {
+      ed.pen.push(pt); renderEd();
+      $("pen-pop").classList.toggle("show", ed.pen.length >= 3);
+      edStatus("已添加 " + ed.pen.length + " 个点" + (ed.pen.length >= 3 ? "，可执行闭合" : "（至少 3 个点）"));
+    } else if (ed.tool === "move") {
+      ed.drawing = true; ed.last = { x: e.clientX, y: e.clientY };
+    }
+  });
+
+  cvEd.addEventListener("pointermove", function (e) {
+    if (!ed) return;
+    if (ed.tool === "pen") {
+      if (ed.pen.length) { ed.hoverPt = toImagePt(e); renderEd(); }
+      return;
+    }
+    if (!ed.drawing) return;
+    if (ed.tool === "brush" || ed.tool === "eraser") {
+      strokeTo(toImagePt(e)); renderEd();
+    } else if (ed.tool === "rect") {
+      ed.rect = normRect(ed.rectStart, toImagePt(e)); renderEd();
+    } else if (ed.tool === "move") {
+      ed.panX += e.clientX - ed.last.x;
+      ed.panY += e.clientY - ed.last.y;
+      ed.last = { x: e.clientX, y: e.clientY };
+      renderEd();
+    }
+  });
+
+  cvEd.addEventListener("pointerup", function () {
+    if (!ed) return;
+    if (ed.tool === "rect" && ed.rect && (ed.rect.w > 2 || ed.rect.h > 2)) {
+      $("rect-pop").classList.add("show");
+      edStatus("对选中区域执行：");
+    }
+    ed.drawing = false;
+  });
+
+  cvEd.addEventListener("wheel", function (e) {
+    if (!ed) return;
+    e.preventDefault();
+    var r = cvEd.getBoundingClientRect();
+    var mx = e.clientX - r.left, my = e.clientY - r.top;
+    var v = edView();
+    var ix = (mx - v.ox) / v.s, iy = (my - v.oy) / v.s;
+    ed.zoom = Math.min(10, Math.max(0.2, ed.zoom * (e.deltaY < 0 ? 1.12 : 1 / 1.12)));
+    var v2 = edView();
+    ed.panX += mx - (v2.ox + ix * v2.s);
+    ed.panY += my - (v2.oy + iy * v2.s);
+    renderEd();
+  }, { passive: false });
+
+  document.querySelectorAll(".ed-btn[data-tool]").forEach(function (b) {
+    b.addEventListener("click", function () { setEdTool(b.dataset.tool); });
+  });
+  $("ed-size").addEventListener("input", function () {
+    if (!ed) return;
+    ed.size = +$("ed-size").value;
+    $("ed-size-out").textContent = $("ed-size").value;
+  });
+  $("ed-tol").addEventListener("input", function () {
+    $("ed-tol-out").textContent = $("ed-tol").value;
+  });
+  $("ed-auto").addEventListener("click", autoCut);
+  $("ed-ai").addEventListener("click", aiCut);
+  $("ed-undo").addEventListener("click", undoEd);
+  $("rect-cut").addEventListener("click", function () { applyRect(true); });
+  $("rect-keep").addEventListener("click", function () { applyRect(false); });
+  $("pen-cut").addEventListener("click", function () { applyPen(true); });
+  $("pen-keep").addEventListener("click", function () { applyPen(false); });
+  $("pen-clear").addEventListener("click", function () {
+    if (!ed) return;
+    ed.pen = []; ed.hoverPt = null;
+    hidePops(); renderEd();
+    edStatus("已清空钢笔点");
+  });
+  $("ed-ok").addEventListener("click", function () {
+    if (!ed) return;
+    var p = state.products.filter(function (x) { return x.id === ed.id; })[0];
+    if (p) {
+      p.src = ed.off;
+      p.w = ed.w; p.h = ed.h;
+      p.hasAlpha = true;
+    }
+    var name = ed.name;
+    closeEditor();
+    renderProductList();
+    renderAll();
+    toast("去背完成，已应用到「" + name + "」");
+  });
+  $("ed-cancel").addEventListener("click", closeEditor);
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && ed) closeEditor();
+  });
+  window.addEventListener("resize", function () {
+    if (!ed) return;
+    var cv = $("editor-canvas");
+    cv.width = $("ed-stage").clientWidth;
+    cv.height = $("ed-stage").clientHeight;
+    renderEd();
+  });
+
+  // ---------- 加载背景 ----------
+  function loadBackgrounds(files) {
+    var imgs = files.filter(function (f) { return EXTS.test(f.name); });
+    if (!imgs.length) { toast("没有找到支持的背景图片"); return; }
+    var fresh = files.length > 0 && state.backgrounds.length === 0;
+    if (fresh) state.backgrounds = [];
+    var done = 0;
+    $("bg-count").innerHTML = "正在加载 <b>0</b> / " + imgs.length + " ...";
+    imgs.forEach(function (f) {
+      var url = URL.createObjectURL(f);
+      var img = new Image();
+      img.onload = function () {
+        state.backgrounds.push({ src: img, name: f.name, w: img.naturalWidth, h: img.naturalHeight });
+        done++;
+        $("bg-count").innerHTML = "已加载 <b>" + done + "</b> / " + imgs.length;
+        if (done === imgs.length) {
+          state.backgrounds.sort(function (a, b) { return a.name.localeCompare(b.name); });
+          $("bg-count").innerHTML = "共 <b>" + state.backgrounds.length + "</b> 张背景图";
+          renderAll();
+        }
+      };
+      img.onerror = function () {
+        done++;
+        if (done === imgs.length) renderAll();
+      };
+      img.src = url;
+    });
+  }
+
+  // ---------- 合成逻辑（产品图固定居中，等比缩放） ----------
+  function composeCanvas(bg, product, scalePct) {
+    var bw = bg.w, bh = bg.h;
+    var c = document.createElement("canvas");
+    c.width = bw; c.height = bh;
+    var ctx = c.getContext("2d");
+    ctx.drawImage(bg.src, 0, 0, bw, bh);
+    if (product) {
+      var tw = Math.max(1, Math.round(bw * scalePct / 100));
+      var th = Math.max(1, Math.round(product.h * tw / product.w));
+      var x = Math.round((bw - tw) / 2);
+      var y = Math.round((bh - th) / 2);
+      ctx.drawImage(product.src, x, y, tw, th);
+    }
+    return c;
+  }
+
+  // ---------- 渲染 ----------
+  function combos() {
+    var list = [];
+    var prods = state.products.length ? state.products : [null];
+    prods.forEach(function (p) {
+      state.backgrounds.forEach(function (bg) {
+        list.push({ product: p, bg: bg });
+      });
+    });
+    return list;
+  }
+
+  function renderAll() {
+    var grid = $("grid");
+    var items = combos();
+    var hasBg = state.backgrounds.length > 0;
+    $("empty-hint").style.display = hasBg ? "none" : "block";
+    $("result-view").style.display = hasBg ? "block" : "none";
+    if (!hasBg) return;
+
+    grid.innerHTML = "";
+    items.forEach(function (it) {
+      var full = composeCanvas(it.bg, it.product, effectiveScale());
+      var s = Math.min(1, PREVIEW_MAX / Math.max(it.bg.w, it.bg.h));
+      var card = document.createElement("div");
+      card.className = "card";
+      if (s < 1) {
+        var tc = document.createElement("canvas");
+        tc.width = Math.round(it.bg.w * s);
+        tc.height = Math.round(it.bg.h * s);
+        tc.getContext("2d").drawImage(full, 0, 0, tc.width, tc.height);
+        card.appendChild(tc);
+      } else {
+        card.appendChild(full);
+      }
+      var meta = document.createElement("div");
+      meta.className = "meta";
+      var lbl = document.createElement("span");
+      lbl.className = "lbl";
+      lbl.textContent = it.product ? it.product.name + " × " + it.bg.name : it.bg.name;
+      lbl.title = lbl.textContent;
+      var dl = document.createElement("button");
+      dl.className = "dl";
+      dl.textContent = "下载";
+      dl.addEventListener("click", function () { downloadOne(it); });
+      meta.appendChild(lbl); meta.appendChild(dl);
+      card.appendChild(meta);
+      grid.appendChild(card);
+    });
+
+    var p = state.products.length, b = state.backgrounds.length;
+    var info = "<b>" + p + "</b> 个产品 × <b>" + b + "</b> 张背景 = <b>" + (p * b) + "</b> 张合成图"
+             + " ｜ 居中 ｜ 缩放 " + effectiveScale() + "%";
+    if (!p) info += " ｜ <b>尚未选择产品图</b>";
+    $("result-info").innerHTML = info;
+    var canDl = p > 0;
+    $("btn-download-all").disabled = !canDl;
+    $("btn-download-all2").disabled = !canDl;
+  }
+
+  // ---------- 保存到指定文件夹（File System Access API） ----------
+  var dirHandle = null;
+
+  function dirSupported() {
+    return typeof window.showDirectoryPicker === "function";
+  }
+
+  $("dir-drop").addEventListener("click", async function () {
+    if (!dirSupported()) {
+      var w = $("dir-warn");
+      w.textContent = "当前浏览器不支持直接写入文件夹（请使用最新版 Chrome 或 Edge），将使用浏览器默认下载方式。";
+      w.style.display = "block";
+      return;
+    }
+    try {
+      dirHandle = await window.showDirectoryPicker({ mode: "readwrite" });
+      $("dir-label").textContent = "保存到：" + dirHandle.name;
+      $("dir-status").textContent = "点此处可更换文件夹";
+      $("dir-warn").style.display = "none";
+      toast("已选择保存文件夹：" + dirHandle.name);
+    } catch (e) {
+      if (e && e.name !== "AbortError") {
+        var w2 = $("dir-warn");
+        w2.textContent = "选择文件夹失败：" + e.message;
+        w2.style.display = "block";
+      }
+    }
+  });
+
+  async function saveBlobToDir(blob, name) {
+    var fh = await dirHandle.getFileHandle(name, { create: true });
+    var w = await fh.createWritable();
+    await w.write(blob);
+    await w.close();
+  }
+
+  function canvasBlob(canvas, fmt, cb) {
+    if (fmt === "jpg") {
+      var c2 = document.createElement("canvas");
+      c2.width = canvas.width; c2.height = canvas.height;
+      var ctx = c2.getContext("2d");
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, c2.width, c2.height);
+      ctx.drawImage(canvas, 0, 0);
+      c2.toBlob(cb, "image/jpeg", 0.92);
+    } else {
+      canvas.toBlob(cb, "image/png");
+    }
+  }
+
+  function canvasBlobP(canvas, fmt) {
+    return new Promise(function (resolve) {
+      canvasBlob(canvas, fmt, resolve);
+    });
+  }
+
+  function stem(name) { return name.replace(/\.[^.]+$/, ""); }
+
+  function outName(it) {
+    var suffix = $("suffix").value || "";
+    var ext = $("fmt").value === "jpg" ? ".jpg" : ".png";
+    // 多产品时按 产品名_背景名 命名，避免互相覆盖
+    if (it.product) return stem(it.product.name) + "_" + stem(it.bg.name) + suffix + ext;
+    return stem(it.bg.name) + suffix + ext;
+  }
+
+  async function downloadOne(it) {
+    var blob = await canvasBlobP(composeCanvas(it.bg, it.product, effectiveScale()), $("fmt").value);
+    if (dirHandle) {
+      await saveBlobToDir(blob, outName(it));
+      toast("已保存：" + outName(it));
+    } else {
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = outName(it);
+      a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+    }
+  }
+
+  async function downloadAll() {
+    var fmt = $("fmt").value;
+    var items = combos().filter(function (it) { return it.product; });
+    var total = items.length;
+    if (dirHandle) {
+      var ok = 0, fail = 0;
+      for (var i = 0; i < total; i++) {
+        try {
+          var blob = await canvasBlobP(composeCanvas(items[i].bg, items[i].product, effectiveScale()), fmt);
+          await saveBlobToDir(blob, outName(items[i]));
+          ok++;
+        } catch (e) {
+          fail++;
+        }
+        toast("正在保存 " + (i + 1) + " / " + total + " ...");
+      }
+      toast("已保存 " + ok + " 张到文件夹「" + dirHandle.name + "」" + (fail ? "，失败 " + fail + " 张" : ""));
+    } else {
+      for (var j = 0; j < total; j++) {
+        var b2 = await canvasBlobP(composeCanvas(items[j].bg, items[j].product, effectiveScale()), fmt);
+        var a = document.createElement("a");
+        a.href = URL.createObjectURL(b2);
+        a.download = outName(items[j]);
+        a.click();
+        toast("正在下载 " + (j + 1) + " / " + total + " ...");
+        await new Promise(function (r) { setTimeout(r, 350); });
+      }
+      toast("已全部下载 " + total + " 张到浏览器下载目录");
+    }
+  }
+
+  $("btn-download-all").addEventListener("click", downloadAll);
+  $("btn-download-all2").addEventListener("click", downloadAll);
+
+  $("btn-clear").addEventListener("click", function () {
+    state.products = [];
+    state.backgrounds = [];
+    if (ed) closeEditor();
+    $("product-input").value = "";
+    $("bg-folder-input").value = "";
+    $("bg-count").textContent = "";
+    renderProductList();
+    renderAll();
+    toast("已清空");
+  });
+
+  // ---------- Toast ----------
+  var toastTimer = null;
+  function toast(msg) {
+    var t = $("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove("show"); }, 2500);
+  }
+})();
+</script>
+</body>
+</html>
